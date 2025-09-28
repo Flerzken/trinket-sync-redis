@@ -10,19 +10,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class TrinketsSyncMod implements ModInitializer {
-    public static String SERVER_INSTANCE_ID = java.util.UUID.randomUUID().toString();
     public static final String MOD_ID = "trinketssync";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
     static DatabaseManager DB;
     static TrinketsService SERVICE;
     static RedisBus REDIS;
+    public static String SERVER_INSTANCE_ID = java.util.UUID.randomUUID().toString();
 
     @Override
     public void onInitialize() {
-        LOGGER.info("[TrinketsSync] Init (Redis async)");
+        LOGGER.info("[TrinketsSync] Init v0.5.1 (Redis async)");
         Config.load();
         DB = new DatabaseManager(Config.INSTANCE);
         SERVICE = new TrinketsService(DB);
+        TickScheduler.init();
 
         ServerLifecycleEvents.SERVER_STARTED.register((MinecraftServer server) -> {
             DB.init();
@@ -31,10 +32,9 @@ public class TrinketsSyncMod implements ModInitializer {
                 REDIS = new RedisBus(Config.INSTANCE);
                 REDIS.startSubscribe(message -> server.execute(() -> {
                     try {
+                        if (message.originId() != null && message.originId().equals(SERVER_INSTANCE_ID)) return;
                         ServerPlayerEntity p = server.getPlayerManager().getPlayer(message.uuid());
-                        if (p != null && (message.originId() == null || !message.originId().equals(SERVER_INSTANCE_ID))) {
-                        SERVICE.applyBase64IfNewer(p, message.base64(), message.updatedAt());
-                    }
+                        if (p != null) SERVICE.applyBase64IfNewer(p, message.base64(), message.updatedAt());
                     } catch (Exception e) { LOGGER.error("[tsync] Redis apply error", e); }
                 }));
                 LOGGER.info("[TrinketsSync] Redis subscriber started on {}", Config.INSTANCE.redisChannel);
@@ -51,16 +51,12 @@ public class TrinketsSyncMod implements ModInitializer {
             ServerPlayerEntity p = handler.player;
             try { SERVICE.loadFor(p); } catch (Exception e) { LOGGER.error("[TrinketsSync] Failed initial load for {}", p.getGameProfile().getName(), e); }
 
-            // +1 tick apply
-            server.execute(() -> {
-                try { SERVICE.loadFor(p); } catch (Exception ignored) {}
-            });
-            // +20 ticks (~1s) apply
-            server.execute(() -> {
-                server.execute(() -> {
+            int ticks = Math.max(0, Config.INSTANCE.applySecondPassTicks);
+            if (ticks > 0) {
+                TickScheduler.schedule(server, ticks, () -> {
                     try { SERVICE.loadFor(p); } catch (Exception ignored) {}
                 });
-            });
+            }
         });
 
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {

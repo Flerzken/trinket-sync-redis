@@ -12,5 +12,7 @@
   "redisHost": "127.0.0.1",
   "redisPort": 6379,
   "redisPassword": "",
-  "redisChannel": "trinkets:sync"
+  "redisChannel": "trinkets:sync",
+  "applySecondPassTicks": 40,
+  "skipSaveMsAfterLoad": 7000
 }
