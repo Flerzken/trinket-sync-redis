@@ -7,7 +7,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 public class RedisBus {
-    public record SyncMessage(UUID uuid, String base64, long updatedAt) {}
+    public record SyncMessage(UUID uuid, String base64, long updatedAt, String originId) {}
 
     private final Config cfg;
     private final JedisPool pool;
@@ -49,7 +49,7 @@ public class RedisBus {
 
     public void publish(java.util.UUID uuid, String base64, long updatedAt) {
         try (Jedis j = pool.getResource()) {
-            String json = gson.toJson(new SyncMessage(uuid, base64, updatedAt));
+            String json = gson.toJson(new SyncMessage(uuid, base64, updatedAt, TrinketsSyncMod.SERVER_INSTANCE_ID));
             j.publish(cfg.redisChannel, json);
         } catch (Exception e) {
             TrinketsSyncMod.LOGGER.error("[tsync] Redis publish error", e);

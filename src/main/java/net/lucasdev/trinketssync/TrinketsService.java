@@ -64,7 +64,20 @@ public class TrinketsService {
         }
         RegistryWrapper.WrapperLookup lookup = (RegistryWrapper.WrapperLookup) player.getRegistryManager();
         TrinketsSyncMod.LOGGER.info("[tsync] Applying NBT for {} (keys={})", player.getGameProfile().getName(), nbt.getSize());
-        comp.readFromNbt(nbt, lookup);
+        
+// Clear all Trinkets slots before applying to ensure removals are reflected
+try {
+    var invs = comp.getInventory().entrySet(); // Map<Pair<Group,Slot>, TrinketInventory>
+    for (var entry : invs) {
+        var tinv = entry.getValue();
+        for (int i = 0; i < tinv.size(); i++) {
+            tinv.setStack(i, net.minecraft.item.ItemStack.EMPTY);
+        }
+    }
+} catch (Throwable t) {
+    TrinketsSyncMod.LOGGER.warn("[tsync] Failed to pre-clear trinket slots for {}", player.getGameProfile().getName(), t);
+}
+            comp.readFromNbt(nbt, lookup);
         player.getInventory().markDirty();
         player.currentScreenHandler.sendContentUpdates();
     }

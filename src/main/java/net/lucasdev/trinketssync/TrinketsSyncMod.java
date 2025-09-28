@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class TrinketsSyncMod implements ModInitializer {
+    public static String SERVER_INSTANCE_ID = java.util.UUID.randomUUID().toString();
     public static final String MOD_ID = "trinketssync";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
     static DatabaseManager DB;
@@ -31,7 +32,9 @@ public class TrinketsSyncMod implements ModInitializer {
                 REDIS.startSubscribe(message -> server.execute(() -> {
                     try {
                         ServerPlayerEntity p = server.getPlayerManager().getPlayer(message.uuid());
-                        if (p != null) SERVICE.applyBase64IfNewer(p, message.base64(), message.updatedAt());
+                        if (p != null && (message.originId() == null || !message.originId().equals(SERVER_INSTANCE_ID))) {
+                        SERVICE.applyBase64IfNewer(p, message.base64(), message.updatedAt());
+                    }
                     } catch (Exception e) { LOGGER.error("[tsync] Redis apply error", e); }
                 }));
                 LOGGER.info("[TrinketsSync] Redis subscriber started on {}", Config.INSTANCE.redisChannel);
