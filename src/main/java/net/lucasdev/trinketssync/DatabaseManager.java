@@ -46,29 +46,21 @@ public class DatabaseManager {
 
     public void close() { if (ds != null) ds.close(); }
 
-    public Optional<String> load(UUID uuid) {
-        try (Connection c = ds.getConnection();
-             PreparedStatement ps = c.prepareStatement("SELECT nbt_base64 FROM player_trinkets WHERE uuid=?")) {
-            ps.setString(1, uuid.toString());
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return Optional.ofNullable(rs.getString(1));
+    public static record Row(String base64, long updatedAtMs) {}
+public Optional<Row> load(UUID uuid) {
+    try (Connection c = ds.getConnection();
+         PreparedStatement ps = c.prepareStatement("SELECT nbt_base64, UNIX_TIMESTAMP(updated_at)*1000 FROM player_trinkets WHERE uuid=?")) {
+        ps.setString(1, uuid.toString());
+        try (ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                String b64 = rs.getString(1);
+                long ts = rs.getLong(2);
+                return Optional.of(new Row(b64, ts));
             }
-        } catch (SQLException e) {
-            TrinketsSyncMod.LOGGER.error("[DB] load failed for {}", uuid, e);
         }
-        return Optional.empty();
+    } catch (SQLException e) {
+        TrinketsSyncMod.LOGGER.error("[DB] load failed for {}", uuid, e);
     }
-
-    public void save(UUID uuid, String base64) {
-        try (Connection c = ds.getConnection();
-             PreparedStatement ps = c.prepareStatement(
-                     "INSERT INTO player_trinkets (uuid, nbt_base64) VALUES (?, ?) " +
-                             "ON DUPLICATE KEY UPDATE nbt_base64=VALUES(nbt_base64)")) {
-            ps.setString(1, uuid.toString());
-            ps.setString(2, base64);
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            TrinketsSyncMod.LOGGER.error("[DB] save failed for {}", uuid, e);
-        }
-    }
+    return Optional.empty();
 }
+

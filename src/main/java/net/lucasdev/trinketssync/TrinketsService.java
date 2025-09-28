@@ -33,11 +33,11 @@ public class TrinketsService {
         if (!Config.INSTANCE.loadOnJoin) return;
         io.execute(() -> {
             try {
-                Optional<String> encoded = db.load(player.getUuid());
-                if (encoded.isEmpty()) return;
+                Optional<DatabaseManager.Row> row = db.load(player.getUuid());
+                if (row.isEmpty()) return;
                 player.getServer().execute(() -> {
                     try {
-                        applyBase64IfNewer(player, encoded.get(), System.currentTimeMillis());
+                        applyBase64IfNewer(player, row.get().base64(), row.get().updatedAtMs());
                         lastLoadedMs.put(player.getUuid(), System.currentTimeMillis());
                     } catch (Exception e) {
                         TrinketsSyncMod.LOGGER.error("[tsync] loadFor apply", e);
