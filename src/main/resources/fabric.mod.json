@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "trinketssync",
+  "version": "0.4.0-redis",
+  "name": "Trinkets Sync (Redis)",
+  "description": "Sync Trinkets slots via MySQL plus Redis pub/sub for instant cross-server propagation.",
+  "authors": [
+    "LucasDev + ChatGPT"
+  ],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "net.lucasdev.trinketssync.TrinketsSyncMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.7",
+    "fabric": "*",
+    "minecraft": "1.21.x",
+    "trinkets": ">=3.10.0"
+  },
+  "mixins": [
+    "trinketssync.mixins.json"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "mysqlHost": "127.0.0.1",
+  "mysqlPort": 3306,
+  "mysqlDatabase": "trinkets_sync",
+  "mysqlUser": "trinkets",
+  "mysqlPassword": "password",
+  "createTableIfMissing": true,
+  "loadOnJoin": true,
+  "saveOnQuit": true,
+  "autosaveSeconds": 300,
+  "redisEnabled": true,
+  "redisHost": "127.0.0.1",
+  "redisPort": 6379,
+  "redisPassword": "",
+  "redisChannel": "trinkets:sync"
+}

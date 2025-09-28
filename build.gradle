@@ -1,0 +1,48 @@
+plugins {
+    id 'java'
+    id 'fabric-loom' version '1.8-SNAPSHOT'
+    id 'maven-publish'
+}
+
+group = 'net.lucasdev'
+version = '0.4.0-redis'
+
+repositories {
+    maven { url = 'https://maven.fabricmc.net/' }
+    maven { url = 'https://maven.terraformersmc.com/releases/' }
+    maven { url = 'https://maven.ladysnake.org/releases' }
+    maven { url = 'https://maven.shedaniel.me/' }
+    maven { url = 'https://api.modrinth.com/maven' }
+    maven { url = 'https://jitpack.io' }
+    maven { name = 'Mojang'; url = 'https://libraries.minecraft.net/' }
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:1.21.1"
+    mappings "net.fabricmc:yarn:1.21.1+build.3:v2"
+
+    modImplementation "net.fabricmc:fabric-loader:0.16.7"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:0.107.0+1.21.1"
+    modImplementation "dev.emi:trinkets:3.10.0"
+
+    implementation "com.zaxxer:HikariCP:5.1.0"
+    implementation "com.mysql:mysql-connector-j:8.4.0"
+    implementation "com.google.code.gson:gson:2.11.0"
+    implementation "redis.clients:jedis:5.1.3"
+
+    implementation 'org.slf4j:slf4j-api:2.0.13'
+    runtimeOnly 'org.slf4j:slf4j-simple:2.0.13'
+}
+
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(21) }
+    withSourcesJar()
+}
+
+loom { splitEnvironmentSourceSets() }
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+}
