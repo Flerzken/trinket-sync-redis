@@ -67,17 +67,15 @@ public class TrinketsService {
         
 // Clear all Trinkets slots before applying to ensure removals are reflected
 try {
-    var invs = comp.getInventory().entrySet(); // Map<Pair<Group,Slot>, TrinketInventory>
-    for (var entry : invs) {
-        var tinv = entry.getValue();
-        for (int i = 0; i < tinv.size(); i++) {
-            tinv.setStack(i, net.minecraft.item.ItemStack.EMPTY);
-        }
+    var equipped = comp.getAllEquipped(); // List<Pair<SlotReference, ItemStack>>
+    for (var pair : equipped) {
+        var ref = pair.getLeft(); // dev.emi.trinkets.api.SlotReference
+        ref.inventory().setStack(ref.index(), net.minecraft.item.ItemStack.EMPTY);
     }
 } catch (Throwable t) {
     TrinketsSyncMod.LOGGER.warn("[tsync] Failed to pre-clear trinket slots for {}", player.getGameProfile().getName(), t);
 }
-            comp.readFromNbt(nbt, lookup);
+comp.readFromNbt(nbt, lookup);
         player.getInventory().markDirty();
         player.currentScreenHandler.sendContentUpdates();
     }
