@@ -11,6 +11,6 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21 }
       - uses: gradle/gradle-build-action@v3
-        with: { gradle-version: 8.10.2, arguments: "build --no-daemon --refresh-dependencies --warning-mode all --stacktrace --info" }
+        with: { gradle-version: 8.10.2, arguments: "build --no-daemon --refresh-dependencies --warning-mode all --stacktrace --info -Dorg.gradle.logging.level=info --no-build-cache" }
       - uses: actions/upload-artifact@v4
         with: { name: trinkets-sync-redis, path: "build/libs/*.jar" }

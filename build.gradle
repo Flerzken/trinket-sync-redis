@@ -43,4 +43,8 @@ loom { splitEnvironmentSourceSets() }
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 21
+    options.compilerArgs += ['-Xlint:all','-Xdiags:verbose']
+}
+    options.encoding = 'UTF-8'
+    options.release = 21
 }
