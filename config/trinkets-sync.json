@@ -13,6 +13,5 @@
   "redisPort": 6379,
   "redisPassword": "",
   "redisChannel": "trinkets:sync",
-  "applySecondPassTicks": 40,
   "skipSaveMsAfterLoad": 7000
 }
