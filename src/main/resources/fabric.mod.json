@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "trinketssync",
-  "version": "0.4.0-redis",
-  "name": "Trinkets Sync (Redis)",
-  "description": "Sync Trinkets slots via MySQL plus Redis pub/sub for instant cross-server propagation.",
+  "version": "0.4.1-redis-async",
+  "name": "Trinkets Sync (Redis Async)",
+  "description": "Sync Trinkets via MySQL + Redis; async IO; anti-stale; double-apply at join.",
   "authors": [
     "LucasDev + ChatGPT"
   ],

@@ -21,7 +21,7 @@ public class Config {
     public boolean saveOnQuit = true;
     public int autosaveSeconds = 300;
 
-    public boolean redisEnabled = false;
+    public boolean redisEnabled = true;
     public String redisHost = "127.0.0.1";
     public int redisPort = 6379;
     public String redisPassword = "";

@@ -18,7 +18,7 @@ public class TrinketsSyncMod implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        LOGGER.info("[TrinketsSync] Init (Redis optional)");
+        LOGGER.info("[TrinketsSync] Init (Redis async)");
         Config.load();
         DB = new DatabaseManager(Config.INSTANCE);
         SERVICE = new TrinketsService(DB);
@@ -39,14 +39,25 @@ public class TrinketsSyncMod implements ModInitializer {
         });
 
         ServerLifecycleEvents.SERVER_STOPPING.register((MinecraftServer server) -> {
-            SERVICE.flushAll(server);
+            SERVICE.shutdown();
             if (REDIS != null) REDIS.close();
             DB.close();
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-            ServerPlayerEntity player = handler.player;
-            try { SERVICE.loadFor(player); } catch (Exception e) { LOGGER.error("[TrinketsSync] Failed load for {}", player.getGameProfile().getName(), e); }
+            ServerPlayerEntity p = handler.player;
+            try { SERVICE.loadFor(p); } catch (Exception e) { LOGGER.error("[TrinketsSync] Failed initial load for {}", p.getGameProfile().getName(), e); }
+
+            // +1 tick apply
+            server.execute(() -> {
+                try { SERVICE.loadFor(p); } catch (Exception ignored) {}
+            });
+            // +20 ticks (~1s) apply
+            server.execute(() -> {
+                server.execute(() -> {
+                    try { SERVICE.loadFor(p); } catch (Exception ignored) {}
+                });
+            });
         });
 
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {

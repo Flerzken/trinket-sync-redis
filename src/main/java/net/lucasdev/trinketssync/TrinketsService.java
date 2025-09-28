@@ -15,19 +15,38 @@ import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class TrinketsService {
     private final DatabaseManager db;
     private long lastAutosaveMs = 0L;
     private final ConcurrentHashMap<UUID, Long> lastAppliedMs = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, Long> lastLoadedMs = new ConcurrentHashMap<>();
+    private final ExecutorService io = Executors.newFixedThreadPool(2);
 
     public TrinketsService(DatabaseManager db) { this.db = db; }
 
-    public void loadFor(ServerPlayerEntity player) throws Exception {
+    public void shutdown() { io.shutdownNow(); }
+
+    public void loadFor(ServerPlayerEntity player) {
         if (!Config.INSTANCE.loadOnJoin) return;
-        Optional<String> encoded = db.load(player.getUuid());
-        if (encoded.isEmpty()) { TrinketsSyncMod.LOGGER.info("[tsync] No DB row for {}", player.getGameProfile().getName()); return; }
-        applyBase64IfNewer(player, encoded.get(), System.currentTimeMillis());
+        io.execute(() -> {
+            try {
+                Optional<String> encoded = db.load(player.getUuid());
+                if (encoded.isEmpty()) return;
+                player.getServer().execute(() -> {
+                    try {
+                        applyBase64IfNewer(player, encoded.get(), System.currentTimeMillis());
+                        lastLoadedMs.put(player.getUuid(), System.currentTimeMillis());
+                    } catch (Exception e) {
+                        TrinketsSyncMod.LOGGER.error("[tsync] loadFor apply", e);
+                    }
+                });
+            } catch (Exception e) {
+                TrinketsSyncMod.LOGGER.error("[tsync] loadFor", e);
+            }
+        });
     }
 
     public void applyBase64IfNewer(ServerPlayerEntity player, String base64, long updatedAt) throws Exception {
@@ -50,23 +69,35 @@ public class TrinketsService {
         player.currentScreenHandler.sendContentUpdates();
     }
 
-    public void saveFor(ServerPlayerEntity player) throws Exception {
+    public void saveFor(ServerPlayerEntity player) {
         if (!Config.INSTANCE.saveOnQuit) return;
-        TrinketComponent comp = TrinketsApi.getTrinketComponent(player).orElse(null);
-        if (comp == null) { TrinketsSyncMod.LOGGER.warn("[tsync] No TrinketComponent for {}", player.getGameProfile().getName()); return; }
-        NbtCompound nbt = new NbtCompound();
-        RegistryWrapper.WrapperLookup lookup = (RegistryWrapper.WrapperLookup) player.getRegistryManager();
-        comp.writeToNbt(nbt, lookup);
-
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        NbtIo.writeCompressed(nbt, out);
-        String encoded = Base64.getEncoder().encodeToString(out.toByteArray());
-        TrinketsSyncMod.LOGGER.info("[tsync] Saving NBT for {} (keys={})", player.getGameProfile().getName(), nbt.getSize());
-        db.save(player.getUuid(), encoded);
-
-        if (Config.INSTANCE.redisEnabled && TrinketsSyncMod.REDIS != null) {
-            TrinketsSyncMod.REDIS.publish(player.getUuid(), encoded, System.currentTimeMillis());
+        // Skip save if very close to a recent load (avoid overwriting fresh state)
+        Long t = lastLoadedMs.get(player.getUuid());
+        if (t != null && System.currentTimeMillis() - t < 5000) {
+            TrinketsSyncMod.LOGGER.info("[tsync] Skipping save (recent load) for {}", player.getGameProfile().getName());
+            return;
         }
+        io.execute(() -> {
+            try {
+                TrinketComponent comp = TrinketsApi.getTrinketComponent(player).orElse(null);
+                if (comp == null) return;
+                NbtCompound nbt = new NbtCompound();
+                RegistryWrapper.WrapperLookup lookup = (RegistryWrapper.WrapperLookup) player.getRegistryManager();
+                comp.writeToNbt(nbt, lookup);
+
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                NbtIo.writeCompressed(nbt, out);
+                String encoded = Base64.getEncoder().encodeToString(out.toByteArray());
+                TrinketsSyncMod.LOGGER.info("[tsync] Saving NBT for {} (keys={})", player.getGameProfile().getName(), nbt.getSize());
+                db.save(player.getUuid(), encoded);
+
+                if (Config.INSTANCE.redisEnabled && TrinketsSyncMod.REDIS != null) {
+                    TrinketsSyncMod.REDIS.publish(player.getUuid(), encoded, System.currentTimeMillis());
+                }
+            } catch (Exception e) {
+                TrinketsSyncMod.LOGGER.error("[tsync] saveFor", e);
+            }
+        });
     }
 
     public void flushAll(MinecraftServer server) {

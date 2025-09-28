@@ -5,12 +5,12 @@ plugins {
 }
 
 group = 'net.lucasdev'
-version = '0.4.0-redis'
+version = '0.4.1-redis-async'
 
 repositories {
     maven { url = 'https://maven.fabricmc.net/' }
-    maven { url = 'https://maven.terraformersmc.com/releases/' }
-    maven { url = 'https://maven.ladysnake.org/releases' }
+    maven { url = 'https://maven.terraformersmc.com/releases/' } // Trinkets
+    maven { url = 'https://maven.ladysnake.org/releases' }       // CCA
     maven { url = 'https://maven.shedaniel.me/' }
     maven { url = 'https://api.modrinth.com/maven' }
     maven { url = 'https://jitpack.io' }
@@ -21,7 +21,6 @@ repositories {
 dependencies {
     minecraft "com.mojang:minecraft:1.21.1"
     mappings "net.fabricmc:yarn:1.21.1+build.3:v2"
-
     modImplementation "net.fabricmc:fabric-loader:0.16.7"
     modImplementation "net.fabricmc.fabric-api:fabric-api:0.107.0+1.21.1"
     modImplementation "dev.emi:trinkets:3.10.0"

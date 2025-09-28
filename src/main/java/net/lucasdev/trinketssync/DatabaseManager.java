@@ -17,12 +17,18 @@ public class DatabaseManager {
 
     public void init() {
         HikariConfig hc = new HikariConfig();
-        String jdbcUrl = String.format("jdbc:mysql://%s:%d/%s?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true",
-                cfg.mysqlHost, cfg.mysqlPort, cfg.mysqlDatabase);
+        String jdbcUrl = String.format(
+            "jdbc:mysql://%s:%d/%s?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true" +
+            "&tcpKeepAlive=true&connectTimeout=5000&socketTimeout=5000&tcpRcvBuf=65536&tcpSndBuf=65536",
+            cfg.mysqlHost, cfg.mysqlPort, cfg.mysqlDatabase);
         hc.setJdbcUrl(jdbcUrl);
         hc.setUsername(cfg.mysqlUser);
         hc.setPassword(cfg.mysqlPassword);
         hc.setMaximumPoolSize(5);
+        hc.setConnectionTimeout(5000);
+        hc.setValidationTimeout(2000);
+        hc.setIdleTimeout(300_000);
+        hc.setMaxLifetime(1_200_000);
         ds = new HikariDataSource(hc);
 
         if (cfg.createTableIfMissing) {
