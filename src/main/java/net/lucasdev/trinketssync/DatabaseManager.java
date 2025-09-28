@@ -18,9 +18,13 @@ public class DatabaseManager {
     public void init() {
         HikariConfig hc = new HikariConfig();
         String jdbcUrl = String.format(
-            "jdbc:mysql://%s:%d/%s?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true" +
-            "&tcpKeepAlive=true&connectTimeout=5000&socketTimeout=5000&tcpRcvBuf=65536&tcpSndBuf=65536",
-            cfg.mysqlHost, cfg.mysqlPort, cfg.mysqlDatabase);
+            "jdbc:mysql://%s:%d/%s"
+            + "?useUnicode=true&characterEncoding=utf8"
+            + "&useSSL=false&allowPublicKeyRetrieval=true"
+            + "&tcpKeepAlive=true&connectTimeout=5000&socketTimeout=5000"
+            + "&tcpRcvBuf=65536&tcpSndBuf=65536",
+            cfg.mysqlHost, cfg.mysqlPort, cfg.mysqlDatabase
+        );
         hc.setJdbcUrl(jdbcUrl);
         hc.setUsername(cfg.mysqlUser);
         hc.setPassword(cfg.mysqlPassword);
@@ -29,38 +33,61 @@ public class DatabaseManager {
         hc.setValidationTimeout(2000);
         hc.setIdleTimeout(300_000);
         hc.setMaxLifetime(1_200_000);
+
         ds = new HikariDataSource(hc);
 
         if (cfg.createTableIfMissing) {
             try (Connection c = ds.getConnection(); Statement st = c.createStatement()) {
-                st.executeUpdate("CREATE TABLE IF NOT EXISTS player_trinkets (" +
-                        "uuid CHAR(36) NOT NULL PRIMARY KEY," +
-                        "nbt_base64 MEDIUMTEXT NOT NULL," +
-                        "updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP" +
-                        ")");
+                st.executeUpdate(
+                    "CREATE TABLE IF NOT EXISTS player_trinkets ("
+                    + "uuid CHAR(36) NOT NULL PRIMARY KEY,"
+                    + "nbt_base64 MEDIUMTEXT NOT NULL,"
+                    + "updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)"
+                );
             } catch (SQLException e) {
                 throw new RuntimeException("Failed to ensure table", e);
             }
         }
     }
 
-    public void close() { if (ds != null) ds.close(); }
-
-    public static record Row(String base64, long updatedAtMs) {}
-public Optional<Row> load(UUID uuid) {
-    try (Connection c = ds.getConnection();
-         PreparedStatement ps = c.prepareStatement("SELECT nbt_base64, UNIX_TIMESTAMP(updated_at)*1000 FROM player_trinkets WHERE uuid=?")) {
-        ps.setString(1, uuid.toString());
-        try (ResultSet rs = ps.executeQuery()) {
-            if (rs.next()) {
-                String b64 = rs.getString(1);
-                long ts = rs.getLong(2);
-                return Optional.of(new Row(b64, ts));
-            }
-        }
-    } catch (SQLException e) {
-        TrinketsSyncMod.LOGGER.error("[DB] load failed for {}", uuid, e);
+    public void close() {
+        if (ds != null) ds.close();
     }
-    return Optional.empty();
-}
 
+    // Row holder: base64 payload + server-side updated_at (ms since epoch)
+    public static record Row(String base64, long updatedAtMs) {}
+
+    public Optional<Row> load(UUID uuid) {
+        try (Connection c = ds.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                 "SELECT nbt_base64, UNIX_TIMESTAMP(updated_at)*1000 "
+                 + "FROM player_trinkets WHERE uuid=?"
+             )) {
+            ps.setString(1, uuid.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String b64 = rs.getString(1);
+                    long tsMs = rs.getLong(2);
+                    return Optional.of(new Row(b64, tsMs));
+                }
+            }
+        } catch (SQLException e) {
+            TrinketsSyncMod.LOGGER.error("[DB] load failed for {}", uuid, e);
+        }
+        return Optional.empty();
+    }
+
+    public void save(UUID uuid, String base64) {
+        try (Connection c = ds.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                 "INSERT INTO player_trinkets (uuid, nbt_base64) VALUES (?, ?) "
+                 + "ON DUPLICATE KEY UPDATE nbt_base64=VALUES(nbt_base64)"
+             )) {
+            ps.setString(1, uuid.toString());
+            ps.setString(2, base64);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            TrinketsSyncMod.LOGGER.error("[DB] save failed for {}", uuid, e);
+        }
+    }
+}
