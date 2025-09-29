@@ -27,7 +27,8 @@ public class Config {
     public String redisPassword = "";
     public String redisChannel = "trinkets:sync";
 
-    public int skipSaveMsAfterLoad = 7000;
+    public int applySecondPassTicks = 60; // ~3s
+    public int skipSaveMsAfterLoad = 10000; // 10s
 
     public static void load() {
         try {

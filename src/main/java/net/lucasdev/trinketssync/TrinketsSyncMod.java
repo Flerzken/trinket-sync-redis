@@ -2,6 +2,7 @@ package net.lucasdev.trinketssync;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -18,10 +19,11 @@ public class TrinketsSyncMod implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        LOGGER.info("[TrinketsSync] Init v0.5.2 (Redis minimal)");
+        LOGGER.info("[TrinketsSync] Init v0.5.3 (Redis async)");
         Config.load();
         DB = new DatabaseManager(Config.INSTANCE);
         SERVICE = new TrinketsService(DB);
+        TickScheduler.init();
 
         ServerLifecycleEvents.SERVER_STARTED.register((MinecraftServer server) -> {
             DB.init();
@@ -48,11 +50,19 @@ public class TrinketsSyncMod implements ModInitializer {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             ServerPlayerEntity p = handler.player;
             try { SERVICE.loadFor(p); } catch (Exception e) { LOGGER.error("[TrinketsSync] Failed initial load for {}", p.getGameProfile().getName(), e); }
+            int ticks = Math.max(0, Config.INSTANCE.applySecondPassTicks);
+            if (ticks > 0) {
+                TickScheduler.schedule(server, ticks, () -> {
+                    try { SERVICE.loadFor(p); } catch (Exception ignored) {}
+                });
+            }
         });
 
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             ServerPlayerEntity player = handler.player;
             try { SERVICE.saveFor(player); } catch (Exception e) { LOGGER.error("[TrinketsSync] Failed save for {}", player.getGameProfile().getName(), e); }
         });
+
+        ServerTickEvents.START_SERVER_TICK.register(server -> SERVICE.maybeAutosave(server));
     }
 }

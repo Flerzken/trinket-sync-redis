@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'net.lucasdev'
-version = '0.5.2-redis-min'
+version = '0.5.3-redis'
 
 repositories {
     maven { url = 'https://maven.fabricmc.net/' }
