@@ -20,6 +20,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.regex.Pattern;
 
 public class TrinketsService {
     private final DatabaseManager db;
@@ -27,10 +28,22 @@ public class TrinketsService {
     private final ConcurrentHashMap<UUID, Long> lastAppliedMs = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<UUID, Long> lastLoadedMs = new ConcurrentHashMap<>();
     private final ExecutorService io = Executors.newFixedThreadPool(2);
+    private Pattern cleanupPattern = null;
 
     public TrinketsService(DatabaseManager db) { this.db = db; }
 
     public void shutdown() { io.shutdownNow(); }
+
+    private boolean cleanupEnabled() {
+        if (Config.INSTANCE.postApplyCleanupRegex == null) return false;
+        String rx = Config.INSTANCE.postApplyCleanupRegex.trim();
+        if (rx.isEmpty()) return false;
+        if (cleanupPattern == null) {
+            try { cleanupPattern = Pattern.compile(rx, Pattern.CASE_INSENSITIVE); }
+            catch (Exception e) { TrinketsSyncMod.LOGGER.warn("[tsync] Invalid cleanup regex: {}", rx); return false; }
+        }
+        return true;
+    }
 
     public void loadFor(ServerPlayerEntity player) {
         if (!Config.INSTANCE.loadOnJoin) return;
@@ -67,7 +80,7 @@ public class TrinketsService {
         }
         RegistryWrapper.WrapperLookup lookup = (RegistryWrapper.WrapperLookup) player.getRegistryManager();
 
-        // Hard clear via getAllEquipped() using reflection (no external Pair)
+        // Hard clear all trinket slots pre-apply
         try {
             List<?> equipped = comp.getAllEquipped();
             for (Object pair : equipped) {
@@ -89,6 +102,41 @@ public class TrinketsService {
         comp.readFromNbt(nbt, lookup);
         player.getInventory().markDirty();
         player.currentScreenHandler.sendContentUpdates();
+
+        // Optional, targeted cleanup after apply (only if regex configured)
+        if (cleanupEnabled()) {
+            try {
+                List<?> equippedNow = comp.getAllEquipped();
+                for (Object pair : equippedNow) {
+                    Object left = null;
+                    try { left = pair.getClass().getMethod("getLeft").invoke(pair); }
+                    catch (NoSuchMethodException e) {
+                        try { left = pair.getClass().getMethod("getFirst").invoke(pair); }
+                        catch (NoSuchMethodException e2) { /* ignore */ }
+                    }
+                    if (left instanceof SlotReference ref) {
+                        String slotId = "";
+                        try {
+                            Object inv = ref.inventory();
+                            Object type = inv.getClass().getMethod("getSlotType").invoke(inv);
+                            Object group = type.getClass().getMethod("getGroup").invoke(type);
+                            String groupStr = String.valueOf(group);
+                            String nameStr = String.valueOf(type);
+                            slotId = groupStr + ":" + nameStr;
+                        } catch (Throwable ignore) {}
+                        if (!slotId.isEmpty() && cleanupPattern.matcher(slotId).find()) {
+                            if (!ref.inventory().getStack(ref.index()).isEmpty()) {
+                                ref.inventory().setStack(ref.index(), ItemStack.EMPTY);
+                            }
+                        }
+                    }
+                }
+                player.getInventory().markDirty();
+                player.currentScreenHandler.sendContentUpdates();
+            } catch (Throwable t) {
+                TrinketsSyncMod.LOGGER.warn("[tsync] Post-apply cleanup failed for {}", player.getGameProfile().getName(), t);
+            }
+        }
     }
 
     public void saveFor(ServerPlayerEntity player) {

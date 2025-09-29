@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "trinketssync",
-  "version": "0.5.5-e-lite",
-  "name": "Trinkets Sync (Redis v5e-lite)",
-  "description": "Minimal Trinkets sync: MySQL + Redis, async IO, timestamp freshness, hard-clear. + second pass apply (inline)",
+  "version": "0.5.6-all",
+  "name": "Trinkets Sync (Redis v5g-all)",
+  "description": "MySQL + Redis sync for Trinkets with hard-clear, second & third pass, optional post-apply cleanup (regex).",
   "authors": [
     "LucasDev + ChatGPT"
   ],

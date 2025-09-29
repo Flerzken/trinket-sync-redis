@@ -20,12 +20,12 @@ public class TrinketsSyncMod implements ModInitializer {
     static RedisBus REDIS;
     public static String SERVER_INSTANCE_ID = java.util.UUID.randomUUID().toString();
 
-    // inline second pass timer
     private static final ConcurrentHashMap<UUID, Integer> secondPass = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<UUID, Integer> thirdPass  = new ConcurrentHashMap<>();
 
     @Override
     public void onInitialize() {
-        LOGGER.info("[TrinketsSync] Init v0.5.4-slim");
+        LOGGER.info("[TrinketsSync] Init v0.5.6-all");
         Config.load();
         DB = new DatabaseManager(Config.INSTANCE);
         SERVICE = new TrinketsService(DB);
@@ -46,25 +46,6 @@ public class TrinketsSyncMod implements ModInitializer {
             }
         });
 
-        
-        // tick loop for second pass
-        ServerTickEvents.START_SERVER_TICK.register(server -> {
-            if (secondPass.isEmpty()) return;
-            for (var entry : secondPass.entrySet()) {
-                int left = entry.getValue() - 1;
-                if (left <= 0) {
-                    UUID id = entry.getKey();
-                    secondPass.remove(id);
-                    ServerPlayerEntity p = server.getPlayerManager().getPlayer(id);
-                    if (p != null) {
-                        try { SERVICE.loadFor(p); } catch (Exception ignored) {}
-                    }
-                } else {
-                    secondPass.put(entry.getKey(), left);
-                }
-            }
-        });
-
         ServerLifecycleEvents.SERVER_STOPPING.register((MinecraftServer server) -> {
             SERVICE.shutdown();
             if (REDIS != null) REDIS.close();
@@ -73,15 +54,55 @@ public class TrinketsSyncMod implements ModInitializer {
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             ServerPlayerEntity p = handler.player;
-            try { SERVICE.loadFor(p); } catch (Exception e) { LOGGER.error("[TrinketsSync] Failed initial load for {}", p.getGameProfile().getName(), e); }
-            int ticks = Math.max(0, Config.INSTANCE.applySecondPassTicks);
-            if (ticks > 0) { secondPass.put(p.getUuid(), ticks); }
+            try { SERVICE.loadFor(p); } catch (Exception e) {
+                LOGGER.error("[TrinketsSync] Failed initial load for {}", p.getGameProfile().getName(), e);
+            }
+            int t2 = Math.max(0, Config.INSTANCE.applySecondPassTicks);
+            if (t2 > 0) secondPass.put(p.getUuid(), t2);
+            int t3 = Math.max(0, Config.INSTANCE.applyThirdPassTicks);
+            if (t3 > 0) thirdPass.put(p.getUuid(), t3);
         });
 
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             ServerPlayerEntity player = handler.player;
             secondPass.remove(player.getUuid());
-            try { SERVICE.saveFor(player); } catch (Exception e) { LOGGER.error("[TrinketsSync] Failed save for {}", player.getGameProfile().getName(), e); }
+            thirdPass.remove(player.getUuid());
+            try { SERVICE.saveFor(player); } catch (Exception e) {
+                LOGGER.error("[TrinketsSync] Failed save for {}", player.getGameProfile().getName(), e);
+            }
+        });
+
+        ServerTickEvents.START_SERVER_TICK.register(server -> {
+            if (!secondPass.isEmpty()) {
+                for (var entry : secondPass.entrySet()) {
+                    int left = entry.getValue() - 1;
+                    if (left <= 0) {
+                        UUID id = entry.getKey();
+                        secondPass.remove(id);
+                        ServerPlayerEntity p = server.getPlayerManager().getPlayer(id);
+                        if (p != null) {
+                            try { SERVICE.loadFor(p); } catch (Exception ignored) {}
+                        }
+                    } else {
+                        secondPass.put(entry.getKey(), left);
+                    }
+                }
+            }
+            if (!thirdPass.isEmpty()) {
+                for (var entry : thirdPass.entrySet()) {
+                    int left = entry.getValue() - 1;
+                    if (left <= 0) {
+                        UUID id = entry.getKey();
+                        thirdPass.remove(id);
+                        ServerPlayerEntity p = server.getPlayerManager().getPlayer(id);
+                        if (p != null) {
+                            try { SERVICE.loadFor(p); } catch (Exception ignored) {}
+                        }
+                    } else {
+                        thirdPass.put(entry.getKey(), left);
+                    }
+                }
+            }
         });
     }
 }

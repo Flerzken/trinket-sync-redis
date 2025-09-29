@@ -11,8 +11,6 @@ public class Config {
     public static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     public static Config INSTANCE;
 
-    public int applySecondPassTicks = 60;
-
     public String mysqlHost = "127.0.0.1";
     public int mysqlPort = 3306;
     public String mysqlDatabase = "trinkets_sync";
@@ -29,7 +27,11 @@ public class Config {
     public String redisPassword = "";
     public String redisChannel = "trinkets:sync";
 
-    public int skipSaveMsAfterLoad = 10000;
+    public int applySecondPassTicks = 100;   // ~5s
+    public int applyThirdPassTicks  = 120;   // ~6s
+    public int skipSaveMsAfterLoad  = 12000; // 12s
+
+    public String postApplyCleanupRegex = "";
 
     public static void load() {
         try {
