@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "trinketssync",
-  "version": "0.5.6-all",
-  "name": "Trinkets Sync (Redis v5g-all)",
-  "description": "MySQL + Redis sync for Trinkets with hard-clear, second & third pass, optional post-apply cleanup (regex).",
+  "version": "0.5.7-diffsave",
+  "name": "Trinkets Sync (Redis v5h-diffsave)",
+  "description": "Diff-aware save: always saves if Trinkets changed, even within grace window. + second pass apply.",
   "authors": [
     "LucasDev + ChatGPT"
   ],
